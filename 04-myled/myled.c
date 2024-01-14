@@ -100,8 +100,7 @@ static int __init myled_init(void) {
     myled_class = class_create(THIS_MODULE, "myled_class");
     if (IS_ERR(myled_class)) {
         pr_err("myled - Error creating class.\n");
-        unregister_chrdev_region(MKDEV(myled_major, 0), 1);
-        return PTR_ERR(myled_class);
+        goto myled_init_class_error;
     }
 
     /* Initialize the char device and tie a file_operations to it */
@@ -119,37 +118,32 @@ static int __init myled_init(void) {
 
     if (IS_ERR(myled_device)) {
         pr_err("myled - error creating myled char device.\n");
-        class_destroy(myled_class);
-        unregister_chrdev_region(devt, 1);
-        return -1;
+        goto myled_init_file_error;
     }
 
-    	/* GPIO 23 init */
+    /* GPIO 23 init */
 	if(gpio_request(23, "rpi-gpio-23")) {
-		printk("Can not allocate GPIO 4\n");
-		return -1;
+		printk("Can not allocate GPIO 23\n");
+        goto myled_init_gpio_error;
 	}
 
 	/* Set GPIO 23 direction */
 	if(gpio_direction_output(23, 0)) {
 		printk("Can not set GPIO 23 to output!\n");
-		return -1;
-	}
-
-	/* GPIO 17 init */
-	if(gpio_request(17, "rpi-gpio-17")) {
-		printk("Can not allocate GPIO 17\n");
-		return -1;
-	}
-
-	/* Set GPIO 17 direction */
-	if(gpio_direction_input(17)) {
-		printk("Can not set GPIO 17 to input!\n");
-		return -1;
+        goto myled_init_gpio_error;
 	}
 
     pr_info("myled - module loaded\n");
     return 0;
+    
+myled_init_gpio_error:
+    gpio_free(23);
+myled_init_file_error:
+    class_destroy(myled_class);
+myled_init_class_error:
+    unregister_chrdev_region(MKDEV(myled_major, 0), 1);
+    return -1;
+
 }
 
 static void __exit myled_exit(void) {
